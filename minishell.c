@@ -22,7 +22,7 @@ int job_count = 0; /* Track the number of background jobs */
 
 /* Function to print shell prompt */
 void prompt(void) {
-    fprintf(stdout, "\nmsh> ");
+    // fprintf(stdout, "\nmsh> ");
     fflush(stdout);
 }
 
@@ -61,7 +61,7 @@ int main(int argk, char *argv[], char *envp[]) {
         fflush(stdin);
 
         if (feof(stdin)) { /* Exit on EOF */
-            fprintf(stderr, "EOF pid %d feof %d ferror %d\n", getpid(), feof(stdin), ferror(stdin));
+            // fprintf(stderr, "EOF pid %d feof %d ferror %d\n", getpid(), feof(stdin), ferror(stdin));
             exit(0);
         }
         if (line[0] == '#' || line[0] == '\n' || line[0] == '\000')

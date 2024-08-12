@@ -9,6 +9,7 @@
 
 #define NV 20          /* max number of command tokens */
 #define NL 100         /* input buffer size */
+#define MAX_BG_JOBS 100  /* maximum number of background jobs */
 char line[NL];         /* command input buffer */
 
 typedef struct {
@@ -17,12 +18,12 @@ typedef struct {
     char command[NL];
 } BackgroundJob;
 
-BackgroundJob background_jobs[NV];
+BackgroundJob background_jobs[MAX_BG_JOBS];
 int job_count = 0; /* Track the number of background jobs */
 
 /* Function to print shell prompt */
 void prompt(void) {
-    //fprintf(stdout, "\nmsh> ");
+    //printf("msh> ");
     fflush(stdout);
 }
 
@@ -30,19 +31,36 @@ void prompt(void) {
 void check_background_processes() {
     int status;
     pid_t pid;
-    for (int i = 0; i < job_count; i++) {
+
+    for (int i = 0; i < job_count; ) {
         pid = waitpid(background_jobs[i].pid, &status, WNOHANG);
+        if (pid == -1) {
+            perror("waitpid failed");
+            break;
+        }
         if (pid > 0) {
-            /* Print "done" message only if we are processing new input */
-            printf("[%d]+ Done %s\n", background_jobs[i].job_number, background_jobs[i].command);
-            /* Remove the job from the list */
-            for (int j = i; j < job_count - 1; j++) {
-                background_jobs[j] = background_jobs[j + 1];
+            if (WIFEXITED(status) || WIFSIGNALED(status)) {
+                printf("[%d]+ Done %s\n", background_jobs[i].job_number, background_jobs[i].command);
+
+                /* Remove the job from the list */
+                for (int j = i; j < job_count - 1; j++) {
+                    background_jobs[j] = background_jobs[j + 1];
+                }
+                job_count--;
+                // Do not increment i, as we are shifting jobs down and need to check the new job at position i
+            } else {
+                i++; /* Move to next job if the current one hasn't exited */
             }
-            job_count--;
-            i--; /* Adjust index after removal */
+        } else {
+            /* If waitpid returns 0, the process is still running */
+            i++;
         }
     }
+}
+
+void sigchld_handler(int signum) {
+    (void)signum; // Avoid unused parameter warning
+    check_background_processes();
 }
 
 int main(int argk, char *argv[], char *envp[]) {
@@ -51,9 +69,13 @@ int main(int argk, char *argv[], char *envp[]) {
     char *sep = " \t\n";/* command line token separators */
     int i;             /* parse index */
     int background;    /* flag for background processes */
-    
-    /* Signal handler to reap zombie processes */
-    signal(SIGCHLD, SIG_IGN);
+
+    /* Set up the signal handler for SIGCHLD */
+    struct sigaction sa;
+    sa.sa_handler = sigchld_handler;
+    sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGCHLD, &sa, NULL);
 
     /* Prompt for and process one command line at a time */
     while (1) {
@@ -69,7 +91,6 @@ int main(int argk, char *argv[], char *envp[]) {
             perror("msh: fgets failed");
             continue;
         }
-        fflush(stdin);
 
         if (line[0] == '#' || line[0] == '\n' || line[0] == '\000')
             continue; /* Ignore comments and empty lines */
@@ -80,11 +101,11 @@ int main(int argk, char *argv[], char *envp[]) {
             if (v[i] == NULL)
                 break;
         }
+
         /* Check for background process */
         if (i > 1 && strcmp(v[i-1], "&") == 0) {
             background = 1;
             v[i-1] = NULL; /* Remove '&' from command arguments */
-            job_count++;
         } else {
             background = 0;
         }
@@ -117,10 +138,12 @@ int main(int argk, char *argv[], char *envp[]) {
                 waitpid(frkRtnVal, NULL, 0); /* Wait for child if not background */
             } else {
                 /* Store background job details */
-                background_jobs[job_count - 1].pid = frkRtnVal;
-                background_jobs[job_count - 1].job_number = job_count;
-                strncpy(background_jobs[job_count - 1].command, v[0], NL);
-                printf("[%d] %d\n", job_count, frkRtnVal);
+                background_jobs[job_count].pid = frkRtnVal;
+                background_jobs[job_count].job_number = job_count + 1;
+                strncpy(background_jobs[job_count].command, v[0], NL);
+                background_jobs[job_count].command[NL - 1] = '\0'; // Ensure null termination
+                job_count++;
+                printf("[%d] %d\n", background_jobs[job_count - 1].job_number, frkRtnVal);
             }
             break;
         } /* switch */

@@ -63,7 +63,7 @@ int main(int argk, char *argv[], char *envp[]) {
         prompt();
         if (fgets(line, NL, stdin) == NULL) {
             if (feof(stdin)) { /* Exit on EOF */
-                fprintf(stderr, "EOF pid %d feof %d ferror %d\n", getpid(), feof(stdin), ferror(stdin));
+                //fprintf(stderr, "EOF pid %d feof %d ferror %d\n", getpid(), feof(stdin), ferror(stdin));
                 exit(0);
             }
             perror("msh: fgets failed");

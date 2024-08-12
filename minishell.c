@@ -31,7 +31,8 @@ void check_background_processes() {
     int status;
     pid_t pid;
     for (int i = 0; i < job_count; i++) {
-        if ((pid = waitpid(background_jobs[i].pid, &status, WNOHANG)) > 0) {
+        pid = waitpid(background_jobs[i].pid, &status, WNOHANG);
+        if (pid > 0) {
             printf("[%d]+ Done %s\n", background_jobs[i].job_number, background_jobs[i].command);
             /* Remove the job from the list */
             for (int j = i; j < job_count - 1; j++) {
@@ -66,9 +67,6 @@ int main(int argk, char *argv[], char *envp[]) {
         if (line[0] == '#' || line[0] == '\n' || line[0] == '\000')
             continue; /* Ignore comments and empty lines */
 
-        /* Check if any background processes have completed */
-        check_background_processes();
-
         v[0] = strtok(line, sep);
         for (i = 1; i < NV; i++) {
             v[i] = strtok(NULL, sep);
@@ -93,6 +91,7 @@ int main(int argk, char *argv[], char *envp[]) {
                     perror("msh: chdir failed");
                 }
             }
+            check_background_processes(); /* Check background processes after command execution */
             continue; /* Return to prompt */
         }
 
@@ -110,7 +109,7 @@ int main(int argk, char *argv[], char *envp[]) {
         default: /* Code executed only by parent process */
             if (!background) {
                 waitpid(frkRtnVal, NULL, 0); /* Wait for child if not background */
-                printf("%s done\n", v[0]);
+                /* Remove the "done" message here since it should not appear for foreground commands */
             } else {
                 /* Store background job details */
                 background_jobs[job_count - 1].pid = frkRtnVal;
@@ -120,6 +119,9 @@ int main(int argk, char *argv[], char *envp[]) {
             }
             break;
         } /* switch */
+        
+        /* Only check for background process completion after handling a new command */
+        check_background_processes();
     } /* while */
     return 0;
 } /* main */

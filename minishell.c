@@ -11,7 +11,14 @@
 #define NL 100         /* input buffer size */
 char line[NL];         /* command input buffer */
 
-int background_processes = 0; /* Track the background process number */
+typedef struct {
+    pid_t pid;
+    int job_number;
+    char command[NL];
+} BackgroundJob;
+
+BackgroundJob background_jobs[NV];
+int job_count = 0; /* Track the number of background jobs */
 
 /* Function to print shell prompt */
 void prompt(void) {
@@ -23,9 +30,16 @@ void prompt(void) {
 void check_background_processes() {
     int status;
     pid_t pid;
-    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-        printf("[%d]+ Done %s\n", background_processes, line);
-        background_processes--;
+    for (int i = 0; i < job_count; i++) {
+        if ((pid = waitpid(background_jobs[i].pid, &status, WNOHANG)) > 0) {
+            printf("[%d]+ Done %s\n", background_jobs[i].job_number, background_jobs[i].command);
+            /* Remove the job from the list */
+            for (int j = i; j < job_count - 1; j++) {
+                background_jobs[j] = background_jobs[j + 1];
+            }
+            job_count--;
+            i--; /* Adjust index after removal */
+        }
     }
 }
 
@@ -52,6 +66,9 @@ int main(int argk, char *argv[], char *envp[]) {
         if (line[0] == '#' || line[0] == '\n' || line[0] == '\000')
             continue; /* Ignore comments and empty lines */
 
+        /* Check if any background processes have completed */
+        check_background_processes();
+
         v[0] = strtok(line, sep);
         for (i = 1; i < NV; i++) {
             v[i] = strtok(NULL, sep);
@@ -62,7 +79,7 @@ int main(int argk, char *argv[], char *envp[]) {
         if (i > 1 && strcmp(v[i-1], "&") == 0) {
             background = 1;
             v[i-1] = NULL; /* Remove '&' from command arguments */
-            background_processes++;
+            job_count++;
         } else {
             background = 0;
         }
@@ -93,10 +110,13 @@ int main(int argk, char *argv[], char *envp[]) {
         default: /* Code executed only by parent process */
             if (!background) {
                 waitpid(frkRtnVal, NULL, 0); /* Wait for child if not background */
-                check_background_processes(); /* Check for completed background processes */
                 printf("%s done\n", v[0]);
             } else {
-                printf("[%d] %d\n", background_processes, frkRtnVal);
+                /* Store background job details */
+                background_jobs[job_count - 1].pid = frkRtnVal;
+                background_jobs[job_count - 1].job_number = job_count;
+                strncpy(background_jobs[job_count - 1].command, v[0], NL);
+                printf("[%d] %d\n", job_count, frkRtnVal);
             }
             break;
         } /* switch */

@@ -22,7 +22,7 @@ int job_count = 0; /* Track the number of background jobs */
 
 /* Function to print shell prompt */
 void prompt(void) {
-    // fprintf(stdout, "\nmsh> ");
+    //fprintf(stdout, "\nmsh> ");
     fflush(stdout);
 }
 
@@ -61,7 +61,7 @@ int main(int argk, char *argv[], char *envp[]) {
         fflush(stdin);
 
         if (feof(stdin)) { /* Exit on EOF */
-            // fprintf(stderr, "EOF pid %d feof %d ferror %d\n", getpid(), feof(stdin), ferror(stdin));
+            //fprintf(stderr, "EOF pid %d feof %d ferror %d\n", getpid(), feof(stdin), ferror(stdin));
             exit(0);
         }
         if (line[0] == '#' || line[0] == '\n' || line[0] == '\000')
@@ -109,7 +109,6 @@ int main(int argk, char *argv[], char *envp[]) {
         default: /* Code executed only by parent process */
             if (!background) {
                 waitpid(frkRtnVal, NULL, 0); /* Wait for child if not background */
-                /* Remove the "done" message here since it should not appear for foreground commands */
             } else {
                 /* Store background job details */
                 background_jobs[job_count - 1].pid = frkRtnVal;
@@ -120,7 +119,7 @@ int main(int argk, char *argv[], char *envp[]) {
             break;
         } /* switch */
         
-        /* Only check for background process completion after handling a new command */
+        /* Check for background process completion after every new command */
         check_background_processes();
     } /* while */
     return 0;

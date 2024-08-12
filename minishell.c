@@ -33,6 +33,7 @@ void check_background_processes() {
     for (int i = 0; i < job_count; i++) {
         pid = waitpid(background_jobs[i].pid, &status, WNOHANG);
         if (pid > 0) {
+            /* Print "done" message only if we are processing new input */
             printf("[%d]+ Done %s\n", background_jobs[i].job_number, background_jobs[i].command);
             /* Remove the job from the list */
             for (int j = i; j < job_count - 1; j++) {
@@ -56,14 +57,20 @@ int main(int argk, char *argv[], char *envp[]) {
 
     /* Prompt for and process one command line at a time */
     while (1) {
+        /* Check for background process completion before prompting for new input */
+        check_background_processes();
+        
         prompt();
-        fgets(line, NL, stdin);
+        if (fgets(line, NL, stdin) == NULL) {
+            if (feof(stdin)) { /* Exit on EOF */
+                fprintf(stderr, "EOF pid %d feof %d ferror %d\n", getpid(), feof(stdin), ferror(stdin));
+                exit(0);
+            }
+            perror("msh: fgets failed");
+            continue;
+        }
         fflush(stdin);
 
-        if (feof(stdin)) { /* Exit on EOF */
-            //fprintf(stderr, "EOF pid %d feof %d ferror %d\n", getpid(), feof(stdin), ferror(stdin));
-            exit(0);
-        }
         if (line[0] == '#' || line[0] == '\n' || line[0] == '\000')
             continue; /* Ignore comments and empty lines */
 
@@ -91,8 +98,7 @@ int main(int argk, char *argv[], char *envp[]) {
                     perror("msh: chdir failed");
                 }
             }
-            check_background_processes(); /* Check background processes after command execution */
-            continue; /* Return to prompt */
+            continue; /* Return to prompt after handling cd */
         }
 
         /* Fork a child process to exec the command in v[0] */
@@ -118,9 +124,6 @@ int main(int argk, char *argv[], char *envp[]) {
             }
             break;
         } /* switch */
-        
-        /* Check for background process completion after every new command */
-        check_background_processes();
     } /* while */
     return 0;
 } /* main */

@@ -20,10 +20,10 @@ typedef struct {
 
 BackgroundJob background_jobs[MAX_BG_JOBS];
 int job_count = 0; /* Track the number of background jobs */
-int next_job_number = 1; /* Track the next job number to assign */
 
 /* Function to print shell prompt */
 void prompt(void) {
+    //printf("msh> ");
     fflush(stdout);
 }
 
@@ -49,7 +49,7 @@ void check_background_processes() {
                 job_count--;
                 // Do not increment i, as we are shifting jobs down and need to check the new job at position i
             } else {
-                i++; /* Move to the next job if the current one hasn't exited */
+                i++; /* Move to next job if the current one hasn't exited */
             }
         } else {
             /* If waitpid returns 0, the process is still running */
@@ -85,6 +85,7 @@ int main(int argk, char *argv[], char *envp[]) {
         prompt();
         if (fgets(line, NL, stdin) == NULL) {
             if (feof(stdin)) { /* Exit on EOF */
+                //fprintf(stderr, "EOF pid %d feof %d ferror %d\n", getpid(), feof(stdin), ferror(stdin));
                 exit(0);
             }
             perror("msh: fgets failed");
@@ -135,13 +136,18 @@ int main(int argk, char *argv[], char *envp[]) {
         default: /* Code executed only by parent process */
             if (!background) {
                 waitpid(frkRtnVal, NULL, 0); /* Wait for child if not background */
-                /* After each foreground command, check for completed background jobs */
-                check_background_processes();
             } else {
                 /* Store background job details */
                 background_jobs[job_count].pid = frkRtnVal;
-                background_jobs[job_count].job_number = next_job_number++;
-                strncpy(background_jobs[job_count].command, v[0], NL);
+                background_jobs[job_count].job_number = job_count + 1;
+
+                // Store the entire command with arguments
+                snprintf(background_jobs[job_count].command, NL, "%s", v[0]);
+                for (int j = 1; v[j] != NULL; j++) {
+                    strncat(background_jobs[job_count].command, " ", NL - strlen(background_jobs[job_count].command) - 1);
+                    strncat(background_jobs[job_count].command, v[j], NL - strlen(background_jobs[job_count].command) - 1);
+                }
+
                 background_jobs[job_count].command[NL - 1] = '\0'; // Ensure null termination
                 job_count++;
                 printf("[%d] %d\n", background_jobs[job_count - 1].job_number, frkRtnVal);

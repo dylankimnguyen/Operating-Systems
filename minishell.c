@@ -12,22 +12,21 @@
 #define MAX_BG_JOBS 100  /* maximum number of background jobs */
 char line[NL];         /* command input buffer */
 
-typedef struct {
+typedef struct { //struct 
     pid_t pid;
     int job_number;
     char command[NL];
 } BackgroundJob;
 
 BackgroundJob background_jobs[MAX_BG_JOBS];
-int job_count = 0; /* Track the number of background jobs */
+int job_count = 0; // track background jobs
 
 /* Function to print shell prompt */
 void prompt(void) {
-    //printf("msh> ");
     fflush(stdout);
 }
 
-/* Function to handle completed background processes */
+// Function to handle completed background processes
 void check_background_processes() {
     int status;
     pid_t pid;
@@ -42,17 +41,16 @@ void check_background_processes() {
             if (WIFEXITED(status) || WIFSIGNALED(status)) {
                 printf("[%d]+ Done %s\n", background_jobs[i].job_number, background_jobs[i].command);
 
-                /* Remove the job from the list */
                 for (int j = i; j < job_count - 1; j++) {
                     background_jobs[j] = background_jobs[j + 1];
                 }
-                job_count--;
+                job_count--; //remove background job
                 // Do not increment i, as we are shifting jobs down and need to check the new job at position i
             } else {
-                i++; /* Move to next job if the current one hasn't exited */
+                i++; // can move to next job if current hasn't exited
             }
         } else {
-            /* If waitpid returns 0, the process is still running */
+            // if wpid = 0 job is still running
             i++;
         }
     }
@@ -70,7 +68,7 @@ int main(int argk, char *argv[], char *envp[]) {
     int i;             /* parse index */
     int background;    /* flag for background processes */
 
-    /* Set up the signal handler for SIGCHLD */
+    // signal handle for sigchld
     struct sigaction sa;
     sa.sa_handler = sigchld_handler;
     sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
@@ -79,7 +77,7 @@ int main(int argk, char *argv[], char *envp[]) {
 
     /* Prompt for and process one command line at a time */
     while (1) {
-        /* Check for background process completion before prompting for new input */
+        // Check for background process completion before prompting for new input 
         check_background_processes();
         
         prompt();
@@ -110,7 +108,7 @@ int main(int argk, char *argv[], char *envp[]) {
             background = 0;
         }
 
-        /* Handle 'cd' command */
+        // cd
         if (strcmp(v[0], "cd") == 0) {
             if (v[1] == NULL) {
                 fprintf(stderr, "msh: expected argument to \"cd\"\n");
